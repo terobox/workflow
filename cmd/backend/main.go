@@ -17,7 +17,7 @@ func main() {
 	r := gin.Default()
 	r.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
-			"message": "welcome to workflow backend.",
+			"message": "welcome to workflow backend. 001",
 		})
 	})
 	r.GET("/api", func(ctx *gin.Context) {
