@@ -1,4 +1,4 @@
-name: Golang Build and Release [wf-backend] # 推荐填写 app_name，统一规范
+name: Golang Build and Release [wf-backend]
 
 on:
   workflow_dispatch:
@@ -8,8 +8,8 @@ on:
 
 # ==== 变量修改 开始 ====
 env:
-  APP_NAME: wf-backend # 应用程序名称，用于二进制文件名，github release 名称等
-  APP_PATH: ./cmd/backend # 应用程序路径，相对于仓库根目录，main.go 所在目录
+  APP_NAME: wf-backend          # 基础名称
+  APP_PATH: ./cmd/backend       # main.go 所在目录
 # ==== 变量修改 结束 ====
 
 permissions:
@@ -20,16 +20,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
           cache: true
-      - name: Build agent binary
-        run: go build -ldflags="-s -w" -o "${{ env.APP_NAME }}" "${{ env.APP_PATH }}/main.go"
-      - name: Create Release & upload agent binary
+
+      # 构建 Linux / x86_64 (amd64)
+      - name: Build linux/amd64
+        run: |
+          GOOS=linux GOARCH=amd64 \
+          go build -ldflags="-s -w" \
+            -o "${APP_NAME}-linux-amd64" "${APP_PATH}/main.go"
+
+      # 构建 Linux / ARM64 (aarch64)
+      - name: Build linux/arm64
+        run: |
+          GOOS=linux GOARCH=arm64 \
+          go build -ldflags="-s -w" \
+            -o "${APP_NAME}-linux-arm64" "${APP_PATH}/main.go"
+
+      # 创建 Release 并一次性上传两个二进制文件
+      - name: Create Release & upload binaries
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          files: ${{ env.APP_NAME }}
+          files: |
+            ${{ env.APP_NAME }}-linux-amd64
+            ${{ env.APP_NAME }}-linux-arm64
           token: ${{ github.token }}
