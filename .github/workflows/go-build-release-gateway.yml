@@ -1,0 +1,52 @@
+name: Golang Build and Release [wf-gateway] # 1/3
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+# ==== 变量修改 开始 ====
+env:
+  APP_NAME: wf-gateway          # 2/3 基础名称
+  APP_PATH: ./cmd/gateway       # 3/3 main.go 所在目录
+# ==== 变量修改 结束 ====
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      # 构建 Linux / x86_64 (amd64)
+      - name: Build linux/amd64
+        run: |
+          GOOS=linux GOARCH=amd64 \
+          go build -ldflags="-s -w" \
+            -o "${APP_NAME}-linux-amd64" "${APP_PATH}/main.go"
+
+      # 构建 Linux / ARM64 (aarch64)
+      - name: Build linux/arm64
+        run: |
+          GOOS=linux GOARCH=arm64 \
+          go build -ldflags="-s -w" \
+            -o "${APP_NAME}-linux-arm64" "${APP_PATH}/main.go"
+
+      # 创建 Release 并一次性上传两个二进制文件
+      - name: Create Release & upload binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            ${{ env.APP_NAME }}-linux-amd64
+            ${{ env.APP_NAME }}-linux-arm64
+          token: ${{ github.token }}
