@@ -1,4 +1,4 @@
-name: Golang Build and Release [workflow]
+name: Golang Build and Release [wf-backend] # 推荐填写 app_name，统一规范
 
 on:
   workflow_dispatch:
@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
+          cache: true
       - name: Build agent binary
         run: go build -ldflags="-s -w" -o "${{ env.APP_NAME }}" "${{ env.APP_PATH }}/main.go"
       - name: Create Release & upload agent binary
