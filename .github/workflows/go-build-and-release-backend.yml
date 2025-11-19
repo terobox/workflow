@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     tags:
-      # - 'v*'
-      - 'none' # 临时禁用此工作流触发，避免误发布 
+      - 'v*'
+      # - 'none' # 临时禁用此工作流触发，避免误发布 
 
 # ==== 变量修改 开始 ====
 env:

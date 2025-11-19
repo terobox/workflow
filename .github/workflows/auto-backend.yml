@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*'
+      # - 'v*'
+      - 'none'
 
 # ==== 变量修改 开始 ====
 env:
