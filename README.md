@@ -46,3 +46,16 @@ curl -fsSL https://raw.githubusercontent.com/terobox/godeploy/main/install.sh | 
 # 验证安装
 godeploy --version
 ```
+
+## build, release and deploy in one yml 拼接
+
+```bash
+# 合并步骤：
+# 0. 合并 env
+# 1. jobs.build-and-release.if 新增，手动只部署，不 build/release（可选）
+# 2. jobs.deploy 新增
+# 3. jobs.deploy.needs 新增，先构建再部署
+
+# 参考：
+# auto-backend.yml
+```
