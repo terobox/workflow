@@ -1,12 +1,14 @@
-name: Golang Deploy [wf-gateway] # 1/4 
+# 示例部署工作流文件，部署名为 my-app 的应用
+name: Deploy [my-app] # 1/5
 
 on:
   workflow_dispatch:
 
 # ==== 变量修改 开始 ====
 env:
-  APP_NAME: wf-gateway                       # 2/4 应用名称
-  REMOTE_WORKDIR: /srv/app/workflow/gateway  # 3/4 远程部署目录
+  APP_NAME: my-app # 2/5 应用名称
+  REMOTE_WORKDIR: /srv/app/my-app # 3/5 远程部署目录
+  CHECK_SYSTEMD: false # 4/5 是否检查 systemd 服务状态，true 或 false
 # ==== 变量修改 结束 ====
 
 jobs:
@@ -25,7 +27,7 @@ jobs:
       - name: Deploy via godeploy on remote host
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.SSH_HOST }} # 4/4
+          host: ${{ secrets.SSH_HOST }} # 5/5
           username: ${{ secrets.SSH_USER || 'root' }}   # 默认 root
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}         # 默认 22
@@ -77,18 +79,22 @@ jobs:
             echo "===> Running godeploy ${TARGET_TAG} ..."
             sudo -E godeploy "${TARGET_TAG}"
 
-            echo
-            echo "===> Checking systemd unit status: ${SYSTEMD_UNIT}"
+            # === 新增开关 START ===
+            if [ "${CHECK_SYSTEMD:-true}" = "true" ]; then
+              echo
+              echo "===> Checking systemd unit status: ${SYSTEMD_UNIT}"
 
-            # 5) 检查服务是否 active，不 active 就认为部署失败
-            if ! sudo systemctl is-active --quiet "${SYSTEMD_UNIT}"; then
-              echo "[ERROR] systemd unit is not active: ${SYSTEMD_UNIT}"
-              sudo systemctl status "${SYSTEMD_UNIT}" --no-pager -l || true
-              exit 1
+              if ! sudo systemctl is-active --quiet "${SYSTEMD_UNIT}"; then
+                echo "[ERROR] systemd unit is not active: ${SYSTEMD_UNIT}"
+                sudo systemctl status "${SYSTEMD_UNIT}" --no-pager -l || true
+                exit 1
+              fi
+
+              sudo systemctl status "${SYSTEMD_UNIT}" --no-pager -l | head -n 30 || true
+            else
+              echo "[INFO] CHECK_SYSTEMD=false, skip systemd status check."
             fi
-
-            # 打印部分状态日志，方便在 Actions 里排查
-            sudo systemctl status "${SYSTEMD_UNIT}" --no-pager -l | head -n 30 || true
+            # === 新增开关 END ===
 
             echo
-            echo "[SUCCESS] ${APP_NAME} (${SYSTEMD_UNIT}) deployed with tag ${TARGET_TAG} and is active."
+            echo "[SUCCESS] ${APP_NAME} (${SYSTEMD_UNIT}) deployed with tag ${TARGET_TAG}."

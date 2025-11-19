@@ -1,14 +1,14 @@
 # 示例部署工作流文件，部署名为 my-app 的应用
-name: Deploy [wf-web] # 1/5
+name: Deploy [wf-backend] # 1/5
 
 on:
   workflow_dispatch:
 
 # ==== 变量修改 开始 ====
 env:
-  APP_NAME: wf-web # 2/5 应用名称
-  REMOTE_WORKDIR: /srv/app/workflow/web # 3/5 远程部署目录
-  CHECK_SYSTEMD: false # 4/5 是否检查 systemd 服务状态，true 或 false
+  APP_NAME: wf-backend # 2/5 应用名称
+  REMOTE_WORKDIR: /srv/app/workflow/backend # 3/5 远程部署目录
+  CHECK_SYSTEMD: true # 4/5 是否检查 systemd 服务状态，true 或 false
 # ==== 变量修改 结束 ====
 
 jobs:
