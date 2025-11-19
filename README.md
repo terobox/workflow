@@ -59,3 +59,27 @@ godeploy --version
 # 参考：
 # auto-backend.yml
 ```
+
+## 一次打包/发布，多机部署
+
+```bash
+# 调整步骤：
+# 0. 在 deploy 这个 job 里加 matrix 策略。deploy.strategy 新增，参数如下：
+deploy:
+    needs: build-and-release   # ★ 关键：先构建再部署
+    runs-on: ubuntu-latest
+    strategy:
+        fail-fast: false # 某一台失败不会导致其它机器被取消
+        matrix:
+            host_secret_name: [ 'SSH_HOST_08', 'SSH_HOST_15', 'SSH_HOST_21' ]
+# 说明：会并发跑 3 个 deploy job。fail-fast: false 保证其中一个失败，不会把剩下两个 job 停掉。
+
+# 1. 修改 SSH 步骤里的 host 字段。改成用 matrix 动态取秘钥名：
+# 旧：
+host: ${{ secrets.SSH_HOST_08 }} # 5/5
+# 新：
+host: ${{ secrets[matrix.host_secret_name] }}
+
+# 2. 如果你想在 log 里看到当前是哪个“逻辑”主机，可以顺手在 Show deploy info 里加一行（可选）：
+echo "matrix.host_secret_name: ${{ matrix.host_secret_name }}"
+```

@@ -123,7 +123,7 @@ jobs:
 
             # 4) 执行 godeploy <tag>，version 全部由 CLI 决定
             echo "===> Running godeploy ${TARGET_TAG} ..."
-            sudo -E godeploy "${TARGET_TAG}"
+            godeploy "${TARGET_TAG}"
 
             # === 新增开关 START ===
             if [ "${CHECK_SYSTEMD:-true}" = "true" ]; then
