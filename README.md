@@ -83,3 +83,5 @@ host: ${{ secrets[matrix.host_secret_name] }}
 # 2. 如果你想在 log 里看到当前是哪个“逻辑”主机，可以顺手在 Show deploy info 里加一行（可选）：
 echo "matrix.host_secret_name: ${{ matrix.host_secret_name }}"
 ```
+
+## action-gh-release 同一个 repo 里多个 workflow 都用同一个 tag（比如 v0.0.5），存在冲突问题
