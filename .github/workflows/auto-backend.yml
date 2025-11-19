@@ -1,0 +1,146 @@
+name: Golang Build, Release And Deploy [wf-backend]
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+# ==== 变量修改 开始 ====
+env:
+  APP_NAME: wf-backend          # 基础名称
+  APP_PATH: ./cmd/backend       # main.go 所在目录
+  REMOTE_WORKDIR: /srv/app/workflow/backend
+  CHECK_SYSTEMD: true
+# ==== 变量修改 结束 ====
+
+permissions:
+  contents: write
+
+jobs:
+# ==== job 1/2 build and release ====
+  build-and-release:
+    # 手动只部署，不 build/release，无论 tag push 还是手动都可以跑 deploy 
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      # 构建 Linux / x86_64 (amd64)
+      - name: Build linux/amd64
+        run: |
+          GOOS=linux GOARCH=amd64 \
+          go build -ldflags="-s -w" \
+            -o "${APP_NAME}-linux-amd64" "${APP_PATH}/main.go"
+
+      # 构建 Linux / ARM64 (aarch64)
+      - name: Build linux/arm64
+        run: |
+          GOOS=linux GOARCH=arm64 \
+          go build -ldflags="-s -w" \
+            -o "${APP_NAME}-linux-arm64" "${APP_PATH}/main.go"
+
+      # 创建 Release 并一次性上传两个二进制文件
+      - name: Create Release & upload binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            ${{ env.APP_NAME }}-linux-amd64
+            ${{ env.APP_NAME }}-linux-arm64
+          token: ${{ github.token }}
+
+# ==== job 2/2 deploy ====
+  deploy:
+    needs: build-and-release   # ★ 关键：先构建再部署
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show deploy info
+        run: |
+          echo "APP_NAME      : ${{ env.APP_NAME }}"
+          echo "REMOTE_WORKDIR: ${{ env.REMOTE_WORKDIR }}"
+          echo "github.ref     : ${{ github.ref }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "NOTE: 请在 'Use workflow from' 中选择要部署的 tag."
+
+      - name: Deploy via godeploy on remote host
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }} # 5/5
+          username: ${{ secrets.SSH_USER || 'root' }}   # 默认 root
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}         # 默认 22
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+
+            APP_NAME="${{ env.APP_NAME }}"
+            REMOTE_WORKDIR="${{ env.REMOTE_WORKDIR }}"
+            TARGET_TAG="${{ github.ref_name }}"              # 你在 UI 中选择的 tag
+            SYSTEMD_UNIT="${APP_NAME}.service"
+
+            echo "===> Host: $(hostname)"
+            echo "===> APP_NAME      : ${APP_NAME}"
+            echo "===> REMOTE_WORKDIR: ${REMOTE_WORKDIR}"
+            echo "===> TARGET_TAG    : ${TARGET_TAG}"
+            echo "===> SYSTEMD_UNIT  : ${SYSTEMD_UNIT}"
+            echo
+
+            # 1) 检查 godeploy 是否存在
+            if ! command -v godeploy >/dev/null 2>&1; then
+              echo "[ERROR] godeploy not found on remote host."
+              echo "        请先在服务器上安装 godeploy 再运行此 workflow。"
+              echo "        例如: curl -fsSL https://raw.githubusercontent.com/terobox/godeploy/main/install.sh | sudo bash"
+              exit 1
+            fi
+            echo "[INFO] godeploy found: $(command -v godeploy)"
+            godeploy --version || true
+            echo
+
+            # 2) 检查工作目录
+            if [ ! -d "${REMOTE_WORKDIR}" ]; then
+              echo "[ERROR] Remote workdir not found: ${REMOTE_WORKDIR}"
+              exit 1
+            fi
+            cd "${REMOTE_WORKDIR}"
+
+            # 3) 检查 godeploy.env 是否存在
+            if [ ! -f "./godeploy.env" ]; then
+              echo "[ERROR] ./godeploy.env not found in ${REMOTE_WORKDIR}"
+              echo "        请先在服务器上执行: cd ${REMOTE_WORKDIR} && godeploy init 并配置 REPO/APP_NAME 等。"
+              exit 1
+            fi
+
+            echo "[INFO] Using godeploy.env in $(pwd)/godeploy.env"
+            echo
+
+            # 4) 执行 godeploy <tag>，version 全部由 CLI 决定
+            echo "===> Running godeploy ${TARGET_TAG} ..."
+            sudo -E godeploy "${TARGET_TAG}"
+
+            # === 新增开关 START ===
+            if [ "${CHECK_SYSTEMD:-true}" = "true" ]; then
+              echo
+              echo "===> Checking systemd unit status: ${SYSTEMD_UNIT}"
+
+              if ! sudo systemctl is-active --quiet "${SYSTEMD_UNIT}"; then
+                echo "[ERROR] systemd unit is not active: ${SYSTEMD_UNIT}"
+                sudo systemctl status "${SYSTEMD_UNIT}" --no-pager -l || true
+                exit 1
+              fi
+
+              sudo systemctl status "${SYSTEMD_UNIT}" --no-pager -l | head -n 30 || true
+            else
+              echo "[INFO] CHECK_SYSTEMD=false, skip systemd status check."
+            fi
+            # === 新增开关 END ===
+
+            echo
+            echo "[SUCCESS] ${APP_NAME} (${SYSTEMD_UNIT}) deployed with tag ${TARGET_TAG}."
