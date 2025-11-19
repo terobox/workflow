@@ -1,5 +1,19 @@
 # workflow
-workflwo templates
+
+CI/CD with godeploy
+
+## 核心 workflow yml 模版文件
+
+```bash
+# 打包/发布（golang）
+_go-build-and-release-app.yml
+
+# 打包/发布（react）
+_react-build-and-release-web.yml
+
+# 通用部署（golang+react）
+_deploy-app.yml
+```
 
 ## 使用方法
 
@@ -8,7 +22,6 @@ workflwo templates
 # 1. ubuntu24、系统用户 leon、ssh 密钥
 # 2. 远程环境已安装 godeploy 命令，工作目录为用户 leon 配置好读写权限
 # 3. 配置文件：1. /srv/app/my-app/godeploy.env 2. /etc/systemd/system/app.service
-# 4. 
 
 # ==== 提交 tag ====
 git tag v0.0.1
@@ -23,6 +36,8 @@ git push origin v0.0.1
 ```
 
 ## 安装 godeploy
+
+https://github.com/terobox/godeploy
 
 ```bash
 # 下载当前最新版本

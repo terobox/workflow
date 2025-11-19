@@ -39,6 +39,7 @@ jobs:
             REMOTE_WORKDIR="${{ env.REMOTE_WORKDIR }}"
             TARGET_TAG="${{ github.ref_name }}"              # 你在 UI 中选择的 tag
             SYSTEMD_UNIT="${APP_NAME}.service"
+            CHECK_SYSTEMD="${{ env.CHECK_SYSTEMD }}"
 
             echo "===> Host: $(hostname)"
             echo "===> APP_NAME      : ${APP_NAME}"
@@ -80,7 +81,7 @@ jobs:
             sudo -E godeploy "${TARGET_TAG}"
 
             # === 新增开关 START ===
-            if [ "${CHECK_SYSTEMD:-true}" = "true" ]; then
+            if [ "${CHECK_SYSTEMD}" = "true" ]; then
               echo
               echo "===> Checking systemd unit status: ${SYSTEMD_UNIT}"
 
