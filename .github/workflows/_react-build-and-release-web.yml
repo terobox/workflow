@@ -50,11 +50,28 @@ jobs:
           cd ${{ env.WORKING_DIRECTORY }}
           tar -zcvf ../${{ env.APP_NAME }}-${{ github.ref_name }}.tar.gz dist
 
-      # 5. 创建 Release 并上传构建产物
-      - name: Create Release & upload artifact
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          files: ${{ env.APP_NAME }}-${{ github.ref_name }}.tar.gz # 要上传的压缩文件名，例如: my-app-v1.0.0.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }} # 自动生成，无需设置
+      # 5. 创建 / 更新 Release 并上传构建产物（使用 gh，避免 already_exists 422）
+      - name: Create or update GitHub Release and upload artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ASSET="${APP_NAME}-${TAG}.tar.gz"
+
+          echo "Using tag: $TAG"
+          echo "Asset file: $ASSET"
+
+          # 1) 如果 Release 不存在，就尝试创建
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG not found, trying to create..."
+            if ! gh release create "$TAG" \
+              --title "$TAG" \
+              --notes "" >/dev/null 2>&1; then
+              echo "Release create failed (maybe already exists), continue anyway..."
+            fi
+          else
+            echo "Release $TAG already exists, will just upload asset."
+          fi
+
+          # 2) 上传 / 覆盖 当前 workflow 产出的构建包
+          gh release upload "$TAG" "$ASSET" --clobber
